@@ -1,0 +1,25 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+  name: zabbix-web
+spec:
+  ingressClassName: nginx     # I use kubernetes on-premise with nginx ingress-controller installed
+  rules:
+  - host: zabbix.delbechir.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: zabbix-zabbix-web
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - zabbix.delbechir.local
+    secretName: zabbix-server-tls

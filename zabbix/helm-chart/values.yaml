@@ -1,0 +1,146 @@
+---
+zabbix:
+  # Global configurations
+  global:
+    commonLabels:
+      purpose: learning
+
+  zabbixImageTag: ubuntu-7.0.3
+
+  postgresAccess:
+    useUnifiedSecret: true
+    unifiedSecretName: zabbixdb-pguser-zabbix
+    unifiedSecretAutoCreate: true
+    host: "zabbix-postgresql"
+    port: "5432"
+    user: "zabbix"
+    # -- Name of a secret used for Postgres Password, if set, it overrules the POSTGRES_PASSWORD value
+    #passwordSecret: mysecret
+    # -- Key of the secret used for Postgres Password, requires POSTGRES_PASSWORD_SECRET, defaults to password
+    #passwordSecretKey: "password"
+    # -- Password of database - ignored if passwordSecret is set
+    password: "zabbix"
+    # -- Name of database
+    database: "zabbix"
+
+  # **Zabbix Server** configurations
+  zabbixServer:
+    enabled: true
+    replicaCount: 1
+    hostPort: false
+    hostIP: 0.0.0.0
+    image:
+      repository: zabbix/zabbix-server-pgsql
+      tag: null
+    haNodesAutoClean:
+      enabled: true
+      image:
+        repository: postgres
+        tag: 16
+        pullPolicy: IfNotPresent
+        pullSecrets: []
+      schedule: "0 1 * * *"
+
+  # **PostgreSQL** configurations
+  postgresql:
+    enabled: true
+    image:
+      repository: postgres
+      tag: 16
+    persistence:
+      enabled: true
+      existingClaimName: zabbix-postgres-pvc
+      storageSize: 5Gi
+
+  # **Zabbix Proxy** configurations
+  zabbixProxy:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: zabbix/zabbix-proxy-sqlite3
+    ZBX_PROXYMODE: 0
+    ZBX_HOSTNAME: zabbix-proxy # This variable is unique, case sensitive hostname.
+    ZBX_SERVER_HOST: zabbix-zabbix-server
+    ZBX_SERVER_PORT: 10051
+    ZBX_DEBUGLEVEL: 4
+    ZBX_TIMEOUT: 4
+    ZBX_JAVAGATEWAY_ENABLE: true
+    ZBX_JAVA_GATEWAY: zabbix-java-gateway
+    ZBX_VMWARECACHESIZE: 128M
+
+  # **Zabbix Agent** configurations
+  zabbixAgent:
+    enabled: true
+    runAsSidecar: false
+    runAsDaemonSet: true
+    image:
+      repository: zabbix/zabbix-agent2
+    ZBX_SERVER_HOST: 0.0.0.0/0
+    ZBX_SERVER_PORT: 10051
+    ZBX_PASSIVE_ALLOW: true
+    ZBX_ACTIVE_ALLOW: false
+    #ZBX_ACTIVESERVERS: ''
+    # -- The variable is list of comma separated loadable Zabbix modules. It works with volume /var/lib/zabbix/modules.
+    #ZBX_LOADMODULE: dummy1.so,dummy2.so
+    # -- The variable is used to specify debug level, from 0 to 5
+    ZBX_DEBUGLEVEL: 3
+    ZBX_TIMEOUT: 4
+
+  # **Zabbix Web** configurations
+  zabbixWeb:
+    enabled: true
+    replicaCount: 1
+    image:
+      repository: zabbix/zabbix-web-nginx-pgsql
+    service:
+      type: ClusterIP
+      externalIPs: []
+    extraEnv:
+      #  - name: ZBX_SSO_SETTINGS
+      #    value: '{"baseurl": "https://zabbix.example.com"}'
+      - name: ZBX_SERVER_NAME
+        value: Zabbix Delbechir Local
+
+  # **Zabbix Web Service** configurations
+  zabbixWebService:
+    enabled: true
+    replicaCount: 1
+    podAntiAffinity: true
+    image:
+      repository: zabbix/zabbix-web-service
+
+  # **Zabbix Java Gateway** configurations
+  zabbixJavaGateway:
+    # -- Enables use of **Zabbix Java Gateway**
+    enabled: true
+    # -- Number of replicas of ``Zabbix Java Gateway`` module
+    replicaCount: 1
+    image:
+      repository: zabbix/zabbix-java-gateway
+      tag: null
+      pullPolicy: IfNotPresent
+      pullSecrets: []
+    ZBX_START_POLLERS: 5
+    ZBX_DEBUGLEVEL: 3
+    ZBX_TIMEOUT: 3
+    ZBX_JAVAGATEWAY: zabbix-java-gateway
+    service:
+      type: ClusterIP
+      clusterIP:
+
+  # Ingress configurations
+  ingress:
+    enabled: true
+    # -- Ingress annotations
+    annotations:
+      kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+    hosts:
+      - host: zabbix.delbechir.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls:
+      - secretName: zabbix-server-tls
+        hosts:
+          - zabbix.delbechir.local
