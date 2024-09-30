@@ -1,6 +1,8 @@
 # argocd-apps
 
 ArgoCD Applications
+&nbsp;
+
 These applications are deployed using ArgoCD for testing purposes only.
 
 
